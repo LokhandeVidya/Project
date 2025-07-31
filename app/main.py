@@ -1,24 +1,31 @@
+# main.py
+
 import streamlit as st
 import pandas as pd
 import joblib
+import os
+from utils.helpers import extract_features
 
-# Load data and model
-df = pd.read_csv("data/synthetic_energy.csv", parse_dates=["timestamp"])
-model = joblib.load("model/model.pkl")
+st.title("🏠 Residential Energy Forecasting")
 
-# Feature engineering
-df["hour"] = df["timestamp"].dt.hour
-df["day"] = df["timestamp"].dt.day
-df["weekday"] = df["timestamp"].dt.weekday
-df["is_weekend"] = df["weekday"] >= 5
+uploaded_file = st.file_uploader("Upload your CSV file with timestamps")
 
-# Predict
-X = df[["hour", "day", "weekday", "is_weekend"]]
-df["prediction"] = model.predict(X)
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file, parse_dates=["timestamp"])
+    st.write("📄 Input Data Preview", df.head())
 
-# Streamlit app
-st.title("🔋 Residential Energy Analytics")
-st.write("Track and forecast household energy usage.")
+    # Save uploaded file so dashboard can access it
+    save_path = os.path.join("data", "raw", "synthetic_energy.csv")
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    df.to_csv(save_path, index=False)
 
-st.line_chart(df.set_index("timestamp")[["consumption_kWh", "prediction"]])
+    # Feature Engineering
+    df = extract_features(df)
 
+    # Load model
+    model = joblib.load("models/energy_forecast_model.pkl")
+
+    # Predict
+    df["predicted_energy"] = model.predict(df[["hour", "day_of_week"]])
+
+    st.write("⚡ Forecasted Energy Consumption", df[["timestamp", "predicted_energy"]])
